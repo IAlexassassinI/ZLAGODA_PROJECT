@@ -7,5 +7,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="sqlite-jdbc-3.41.2.1" level="project" />
+    <orderEntry type="library" name="bcpkix-jdk15on-1.70" level="project" />
+    <orderEntry type="library" name="forPdf" level="project" />
   </component>
 </module>
