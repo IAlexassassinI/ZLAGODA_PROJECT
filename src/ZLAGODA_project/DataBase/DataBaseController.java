@@ -17,6 +17,7 @@ import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.security.MessageDigest;
 import java.sql.*;
 import java.util.LinkedList;
@@ -28,9 +29,10 @@ public class DataBaseController {
     protected String _nameOfDB = null;
     protected Connection _conn = null;
 
-    DataBaseController(String nameOfDB){
+    public DataBaseController(String nameOfDB){
         this._nameOfDB = nameOfDB;
         connect(); //TODO change place
+        basicInit();
         //_conn.setAutoCommit(false);
     }
 
@@ -56,6 +58,12 @@ public class DataBaseController {
         return conn;
     }
 
+    public void disconnect() throws SQLException {
+        if(this._conn != null){
+            this._conn.close();
+        }
+    }
+
     public static String sha256(final String base) {
         try{
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -73,8 +81,9 @@ public class DataBaseController {
         }
     }
 
-    public String tryLogin(String login, String password){
-        String sql = "SELECT empl_role\n" +
+    public TWO<String, Integer> tryLogin(String login, String password){
+        TWO<String, Integer> Res = null;
+        String sql = "SELECT empl_role, id_employee\n" +
                 "FROM Employee\n" +
                 "WHERE id_employee = (\n" +
                 "SELECT id_employee\n" +
@@ -89,15 +98,18 @@ public class DataBaseController {
             ResultSet rs  = pstmt.executeQuery();
 
             while (rs.next()) {
-                return rs.getString("empl_role");
+                Res = new TWO<>();
+                Res._first = rs.getString("empl_role");
+                Res._second = rs.getInt("id_employee");
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
-        return null;
+        return Res;
     }
 
     public void basicInit() {
+        String sql0 = "PRAGMA foreign_keys = ON;";
         String sql1 = "CREATE TABLE IF NOT EXISTS Employee (\n" +
                 "\tid_employee\t\tINTEGER PRIMARY KEY,\n" +
                 "\templ_surname\tVARCHAR(50) NOT NULL,\n" +
@@ -135,7 +147,7 @@ public class DataBaseController {
                 "\tstreet,\n" +
                 "\tzip_code\n" +
                 ")\n" +
-                "VALUES (0,'overlord','overlord','overlord','manager',0,'0000-00-00','1111-11-11','?','?','?','?');";
+                "VALUES (0,'overlord','overlord','overlord','manager',0,'1111-11-11','2222-11-11','?','?','?','?');";
         String sql4 = "INSERT OR IGNORE INTO Logins (\n" +
                 "\templ_login,\n" +
                 "\templ_pass,\n" +
@@ -151,13 +163,13 @@ public class DataBaseController {
                 "\tcity\t\t\tVARCHAR(50),\n" +
                 "\tstreet\t\t\tVARCHAR(50),\n" +
                 "\tzip_code\t\tVARCHAR(9),\n" +
-                "\tpercent\t\t\tINTEGER NOT NULL\n" +
+                "\tpercent\t\t\tDECIMAL NOT NULL\n" +
                 ");";
         String sql6 = "CREATE TABLE IF NOT EXISTS Cheq (\n" +
                 "\tcheck_number\tINTEGER PRIMARY KEY,\n" +
                 "\tid_employee\t\tINTEGER NOT NULL,\n" +
                 "\tcard_number\t\tINTEGER,\n" +
-                "\tprint_date\t\tDATETIME NOT NULL,\n" +
+                "\tprint_date\t\tDATE NOT NULL,\n" +
                 "\tFOREIGN KEY (id_employee)\n" +
                 "\t\tREFERENCES Employee (id_employee) \n" +
                 "\t\t\tON UPDATE CASCADE\n" +
@@ -173,7 +185,7 @@ public class DataBaseController {
                 ");";
         String sql8 = "CREATE TABLE IF NOT EXISTS Product (\n" +
                 "\tid_product\t\t\tINTEGER PRIMARY KEY,\n" +
-                "\tcategory_number\t\tINTEGER,\n" +
+                "\tcategory_number\t\tINTEGER NOT NULL,\n" +
                 "\tproduct_name\t\tVARCHAR(50) NOT NULL,\n" +
                 "\tcharacteristics\t\tVARCHAR(100) NOT NULL,\n" +
                 "\tFOREIGN KEY (category_number)\n" +
@@ -257,6 +269,7 @@ public class DataBaseController {
                 "ORDER BY print_date;";
 
         try (Statement stmt = this._conn.createStatement()) {
+            stmt.execute(sql0);
             stmt.execute(sql1);
             stmt.execute(sql2);
             stmt.execute(sql3);
@@ -322,7 +335,13 @@ public class DataBaseController {
             //pstmt.setString(1, data._id_employee);
             pstmt.setString(1, data._empl_surname);
             pstmt.setString(2, data._empl_name);
-            pstmt.setString(3, data._empl_patronymic);
+            if(data._empl_patronymic == null){
+                pstmt.setNull(3, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(3, data._empl_patronymic);
+            }
+
             pstmt.setString(4, data._empl_role);
             pstmt.setDouble(5, data._salary);
             pstmt.setString(6, data._date_of_birth.toString());
@@ -370,7 +389,12 @@ public class DataBaseController {
             //pstmt.setInt(1, data._id_employee);
             pstmt.setString(1, data._empl_surname);
             pstmt.setString(2, data._empl_name);
-            pstmt.setString(3, data._empl_patronymic);
+            if(data._empl_patronymic == null){
+                pstmt.setNull(3, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(3, data._empl_patronymic);
+            }
             pstmt.setString(4, data._empl_role);
             pstmt.setDouble(5, data._salary);
             pstmt.setString(6, data._date_of_birth.toString());
@@ -416,11 +440,32 @@ public class DataBaseController {
             //pstmt.setInt(1, data._card_number);
             pstmt.setString(1, data._cust_surname);
             pstmt.setString(2, data._cust_name);
-            pstmt.setString(3, data._cust_patronymic);
+            if(data._cust_patronymic == null){
+                pstmt.setNull(3, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(3, data._cust_patronymic);
+            }
+
             pstmt.setString(4, data._phone_number);
-            pstmt.setString(5, data._city);
-            pstmt.setString(6, data._street);
-            pstmt.setString(7, data._zip_code);
+            if(data._city == null){
+                pstmt.setNull(5, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(5, data._city);
+            }
+            if(data._street == null){
+                pstmt.setNull(6, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(6, data._street);
+            }
+            if(data._zip_code == null){
+                pstmt.setNull(7, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(7, data._zip_code);
+            }
             pstmt.setDouble(8, data._percent);
             if(!AI){
                 pstmt.setInt(9, data._card_number);
@@ -530,19 +575,62 @@ public class DataBaseController {
 
     /////////////////////
 
+    public DataHolder getAllLogins(){
+        DataHolder ResArr = new DataHolder();
+        ResArr._columnNames.add("login");
+        ResArr._columnNames.add("password");
+        ResArr._columnNames.add("employee id");
+        String sql = "SELECT empl_login,\n" +
+                "empl_pass,\n" +
+                "id_employee\n" +
+                "FROM Logins\t\n" +
+                "ORDER By id_employee";
+        try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            //pstmt.setString(1, "cashier");
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                LinkedList<Object> dataList = new LinkedList<>();
+                dataList.add(rs.getString(1));
+                dataList.add(rs.getString(2));
+                dataList.add(rs.getInt(3));
+                ResArr._data.add(dataList);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResArr;
+    }
     public void editLogin(String LoginToFind, Integer id_employee, String Login, String password) throws CantEditException {
         String sql = "UPDATE Logins SET\n" +
-                "\templ_login = ?,\n" +
-                "\templ_pass = ?,\n" +
-                "\tid_employee = ?\n" +
+                "\templ_login = ?,\n";
+        String sqlpass = "\templ_pass = ?,\n";
+        String sqlend = "\tid_employee = ?\n" +
                 "WHERE empl_login = ?";
+        if(password == null){
+            sql += sqlend;
+        }
+        else{
+            sql += sqlpass;
+            sql += sqlend;
+        }
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setString(1, Login);
-            pstmt.setString(2, sha256(password));
-            pstmt.setInt(3, id_employee);
-            pstmt.setString(4, LoginToFind);
+            if(password == null){
+                pstmt.setString(1, Login);
+                //pstmt.setString(2, sha256(password));
+                pstmt.setInt(2, id_employee);
+                pstmt.setString(3, LoginToFind);
+            }
+            else{
+                pstmt.setString(1, Login);
+                pstmt.setString(2, sha256(password));
+                pstmt.setInt(3, id_employee);
+                pstmt.setString(4, LoginToFind);
 
+            }
             pstmt.executeUpdate();
 
             //while (rs.next()) {
@@ -553,6 +641,52 @@ public class DataBaseController {
             throw new CantEditException();
         }
         //return null;
+    }
+
+    public EmployeeData getEmployeeById(Integer id_employee){
+        EmployeeData Res = null;
+        String sql = "SELECT id_employee,\n" +
+                "\templ_surname,\n" +
+                "\templ_name,\n" +
+                "\templ_patronymic,\n" +
+                "\templ_role,\n" +
+                "\tsalary,\n" +
+                "\tdate_of_birth,\n" +
+                "\tdata_of_start,\n" +
+                "\tphone_number,\n" +
+                "\tcity,\n" +
+                "\tstreet,\n" +
+                "\tzip_code\n" +
+                "FROM Employee\n" +
+                "WHERE id_employee = ?\n" +
+                "ORDER BY empl_surname, empl_name, empl_patronymic";
+        try (
+                PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, id_employee);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                Res = new EmployeeData(
+                rs.getInt(1),
+                rs.getString(2),
+                rs.getString(3),
+                rs.getString(4),
+                rs.getString(5),
+                rs.getDouble(6),
+                rs.getString(7),
+                rs.getString(8),
+                rs.getString(9),
+                rs.getString(10),
+                rs.getString(11),
+                rs.getString(12)
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Res;
     }
     public void editEmployee(Integer id_employee, EmployeeData data) throws CantEditException {
         String sql = "UPDATE Employee SET\n" +
@@ -574,7 +708,12 @@ public class DataBaseController {
             pstmt.setInt(1, data._id_employee);
             pstmt.setString(2, data._empl_surname);
             pstmt.setString(3, data._empl_name);
-            pstmt.setString(4, data._empl_patronymic);
+            if(data._empl_patronymic == null){
+                pstmt.setNull(4, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(4, data._empl_patronymic);
+            }
             pstmt.setString(5, data._empl_role);
             pstmt.setDouble(6, data._salary);
             pstmt.setString(7, data._date_of_birth.toString());
@@ -598,6 +737,44 @@ public class DataBaseController {
         //return null;
     }
 
+    public Customer_CardData getCustomerById(Integer card_number){
+        Customer_CardData Res = null;
+        String sql = "SELECT card_number,\n" +
+                "\tcust_surname,\n" +
+                "\tcust_name,\n" +
+                "\tcust_patronymic,\n" +
+                "\tphone_number,\n" +
+                "\tcity,\n" +
+                "\tstreet,\n" +
+                "\tzip_code,\n" +
+                "\tpercent\n" +
+                "FROM Customer_Card\n" +
+                "WHERE card_number = ?\n" +
+                "ORDER BY cust_surname, cust_name, cust_patronymic";
+        try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, card_number);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                Res = new Customer_CardData(
+                rs.getInt(1),
+                rs.getString(2),
+                rs.getString(3),
+                rs.getString(4),
+                rs.getString(5),
+                rs.getString(6),
+                rs.getString(7),
+                rs.getString(8),
+                rs.getDouble(9)
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Res;
+    }
     public void editCustomer_Card(Integer card_number, Customer_CardData data) throws CantEditException {
         String sql = "UPDATE Customer_Card SET\n" +
                 "\tcard_number = ?,\n" +
@@ -615,11 +792,31 @@ public class DataBaseController {
             pstmt.setInt(1, data._card_number);
             pstmt.setString(2, data._cust_surname);
             pstmt.setString(3, data._cust_name);
-            pstmt.setString(4, data._cust_patronymic);
+            if(data._cust_patronymic == null){
+                pstmt.setNull(4, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(4, data._cust_patronymic);
+            }
             pstmt.setString(5, data._phone_number);
-            pstmt.setString(6, data._city);
-            pstmt.setString(7, data._street);
-            pstmt.setString(8, data._zip_code);
+            if(data._city == null){
+                pstmt.setNull(6, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(6, data._city);
+            }
+            if(data._street == null){
+                pstmt.setNull(7, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(7, data._street);
+            }
+            if(data._zip_code == null){
+                pstmt.setNull(8, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(8, data._zip_code);
+            }
             pstmt.setDouble(9, data._percent);
             pstmt.setInt(10, card_number);
 
@@ -635,6 +832,30 @@ public class DataBaseController {
         //return null;
     }
 
+    public CategoryData getCategoryById(Integer category_numbers){
+        CategoryData Res = null;
+        String sql = "SELECT category_number,\n" +
+                "\tcategory_name\n" +
+                "FROM Category\n" +
+                "WHERE category_number = ?\n" +
+                "ORDER BY category_name";
+        try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, category_numbers);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                Res = new CategoryData(
+                rs.getInt(1),
+                rs.getString(2)
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Res;
+    }
     public void editCategory(Integer category_number, CategoryData data) throws CantEditException {
         String sql = "UPDATE Category SET\n" +
                 "\tcategory_number = ?,\n" +
@@ -656,6 +877,35 @@ public class DataBaseController {
             throw new CantEditException();
         }
         //return null;
+    }
+
+    public ProductData getProductById(Integer id_product){
+        ProductData Res = null;
+        String sql = "SELECT id_product,\n" +
+                "\tcategory_number,\n" +
+                "\tproduct_name,\n" +
+                "\tcharacteristics\n" +
+                "FROM Product\n" +
+                "WHERE id_product = ?";
+        try (
+                PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, id_product);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                Res = new ProductData(
+                rs.getInt(1),
+                rs.getInt(2),
+                rs.getString(3),
+                rs.getString(4)
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Res;
     }
     public void editProduct(Integer id_product, ProductData data) throws CantEditException {
         String sql = "UPDATE Product SET\n" +
@@ -682,6 +932,37 @@ public class DataBaseController {
             throw new CantEditException();
         }
         //return null;
+    }
+
+    public Store_ProductData getStoreProductById(Integer UPC){
+        Store_ProductData Res = null;
+        String sql = "SELECT UPC,\n" +
+                "expire_Date,\n" +
+                "id_product,\n" +
+                "selling_price,\n" +
+                "products_number\n" +
+                "FROM Store_Product\n" +
+                "WHERE UPC = ?\n" +
+                "ORDER BY UPC";
+        try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, UPC);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                Res = new Store_ProductData(
+                    rs.getInt(1),
+                    rs.getString(2),
+                    rs.getInt(3),
+                    rs.getDouble(4),
+                    rs.getInt(5)
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Res;
     }
     public void editStore_Product(Integer UPC, Store_ProductData data) throws CantEditException {
         String sql = "UPDATE Store_Product_Data SET\n" +
@@ -1193,10 +1474,23 @@ public class DataBaseController {
                 "ORDER BY product_name";
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setString(1, category_name);
-            pstmt.setString(2, category_name);
-            pstmt.setInt(3, category_number);
-            pstmt.setInt(4, category_number);
+            if(category_name == null){
+                pstmt.setNull(1, Types.VARCHAR);
+                pstmt.setNull(2, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(1, category_name);
+                pstmt.setString(2, category_name);
+            }
+            if(category_name == null){
+                pstmt.setInt(3, Types.INTEGER);
+                pstmt.setInt(4, Types.INTEGER);
+            }
+            else{
+                pstmt.setInt(3, category_number);
+                pstmt.setInt(4, category_number);
+            }
+
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {
@@ -1335,8 +1629,14 @@ public class DataBaseController {
 
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setInt(1, id_employee);
-            pstmt.setInt(2, id_employee);
+            if(id_employee == null){
+                pstmt.setNull(1, Types.INTEGER);
+                pstmt.setNull(2, Types.INTEGER);
+            }
+            else{
+                pstmt.setInt(1, id_employee);
+                pstmt.setInt(2, id_employee);
+            }
             pstmt.setString(3, date1);
             pstmt.setString(4, date2);
 
@@ -1383,10 +1683,18 @@ public class DataBaseController {
                 "ORDER BY print_date";
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setInt(1, id_employee);
-            pstmt.setInt(2, id_employee);
+            if(id_employee == null){
+                pstmt.setNull(1, Types.INTEGER);
+                pstmt.setNull(2, Types.INTEGER);
+            }
+            else{
+                pstmt.setInt(1, id_employee);
+                pstmt.setInt(2, id_employee);
+            }
             pstmt.setString(3, date1);
             pstmt.setString(4, date2);
+
+
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {
@@ -1430,6 +1738,33 @@ public class DataBaseController {
                 LinkedList<Object> dataList = new LinkedList<>();
                 dataList.add(rs.getInt(1));
                 dataList.add(rs.getDouble(2));
+                ResArr._data.add(dataList);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResArr;
+    }
+    public DataHolder getSumOfAllSoldProductsInSpecificPeriodOfTime(String date1, String date2) throws InvalidDateFormatException {
+        CheckDate(date1);
+        CheckDate(date2);
+        DataHolder ResArr = new DataHolder();
+        ResArr._columnNames.add("total cost");
+        String sql = "SELECT SUM(sum_total) AS cost\n" +
+                "FROM Cheq_Print\n" +
+                "WHERE print_date BETWEEN ? AND ?\n" +
+                "ORDER BY cost";
+        try (
+                PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setString(1, date1);
+            pstmt.setString(2, date2);
+
+            ResultSet rs  = pstmt.executeQuery();
+            while (rs.next()) {
+                LinkedList<Object> dataList = new LinkedList<>();
+                dataList.add(rs.getInt(1));
                 ResArr._data.add(dataList);
             }
         } catch (SQLException e) {
@@ -1550,12 +1885,31 @@ public class DataBaseController {
                 "ORDER BY cust_surname, cust_name, cust_patronymic";
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setString(1, surname);
-            pstmt.setString(2, surname);
-            pstmt.setString(3, name);
-            pstmt.setString(4, name);
-            pstmt.setString(5, patronymic);
-            pstmt.setString(6, patronymic);
+            if(surname == null){
+                pstmt.setNull(1, Types.VARCHAR);
+                pstmt.setNull(2, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(1, surname);
+                pstmt.setString(2, surname);
+            }
+            if(name == null){
+                pstmt.setNull(3, Types.VARCHAR);
+                pstmt.setNull(4, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(3, name);
+                pstmt.setString(4, name);
+            }
+            if(patronymic == null){
+                pstmt.setNull(5, Types.VARCHAR);
+                pstmt.setNull(6, Types.VARCHAR);
+            }
+            else{
+                pstmt.setString(5, patronymic);
+                pstmt.setString(6, patronymic);
+            }
+
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {
@@ -1589,7 +1943,7 @@ public class DataBaseController {
                 "\tcard_number,\n" +
                 "\tprint_date\n" +
                 ")\n" +
-                "VALUES (?,NULL,DATETIME());";
+                "VALUES (?,NULL,DATE());";
         String sql2 = "SELECT check_number\n" +
                 "FROM Cheq\n" +
                 "WHERE ROWID = last_insert_rowid();";
@@ -1611,10 +1965,13 @@ public class DataBaseController {
         return check_number;
     }
     public void AddNewLineToCheq(Integer UPC, Integer product_number, Integer check_number) throws WentInNegativeExeption, CantEditException, CantCreateException {
-        Integer Storage_product_number = null;
+        if(product_number < 0){
+            throw new WentInNegativeExeption();
+        }
+        Integer Storage_product_number = -1;
         Double selling_price = null;
         String sql = "SELECT UPC,\n" +
-                "product_number,\n" +
+                "products_number,\n" +
                 "selling_price\n" +
                 "FROM Store_Product\n" +
                 "WHERE UPC = ?";
@@ -1640,7 +1997,8 @@ public class DataBaseController {
                 "\tproducts_number = products_number - ?\n" +
                 "WHERE UPC = ?";
         try (   PreparedStatement pstmt1  = _conn.prepareStatement(sql)){
-            pstmt1.setInt(1, UPC);
+            pstmt1.setInt(1, product_number);
+            pstmt1.setInt(2, UPC);
             pstmt1.executeUpdate();
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -1684,7 +2042,7 @@ public class DataBaseController {
         String sql = "";
         if(printORdelete){
             sql = "UPDATE Cheq SET\n" +
-                    "\tprint_date = DATETIME()\n" +
+                    "\tprint_date = DATE()\n" +
                     "WHERE check_number = ?";
         }
         else{
@@ -1704,6 +2062,20 @@ public class DataBaseController {
                 throw new CantDeleteException();
             }
 
+        }
+    }
+    public void DeleteSale(Integer check_number, Integer UPC) throws CantDeleteException {
+        String sql = "DELETE FROM Sale\n" +
+                "WHERE UPC = ? AND check_number = ?";
+
+        try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
+            pstmt.setInt(1, UPC);
+            pstmt.setInt(2, check_number);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            throw new CantDeleteException();
         }
     }
 
@@ -1780,7 +2152,13 @@ public class DataBaseController {
 
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setInt(1, check_number);
+            if(check_number == null){
+                pstmt.setNull(1, Types.INTEGER);
+            }
+            else{
+                pstmt.setInt(1, check_number);
+            }
+
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {
@@ -1804,12 +2182,14 @@ public class DataBaseController {
     }
     public DataHolder getAllLinesFromCheq(Integer check_number) {
         DataHolder ResArr = new DataHolder();
+        ResArr._columnNames.add("UPC");
         ResArr._columnNames.add("check id");
         ResArr._columnNames.add("product id");
         ResArr._columnNames.add("name");
         ResArr._columnNames.add("number");
         ResArr._columnNames.add("price");
-        String sql = "SELECT Cheq.check_number,\n" +
+        String sql = "SELECT Sale.UPC, \n" +
+                "\tCheq.check_number,\n" +
                 "\tProduct.id_product,\n" +
                 "\tproduct_name,\n" +
                 "\tproduct_number,\n" +
@@ -1822,16 +2202,22 @@ public class DataBaseController {
                 "ORDER BY product_name";
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setInt(1, check_number);
+            if(check_number == null){
+                pstmt.setNull(1, Types.INTEGER);
+            }
+            else{
+                pstmt.setInt(1, check_number);
+            }
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {
                 LinkedList<Object> dataList = new LinkedList<>();
                 dataList.add(rs.getInt(1));
                 dataList.add(rs.getInt(2));
-                dataList.add(rs.getString(3));
-                dataList.add(rs.getInt(4));
-                dataList.add(rs.getDouble(5));
+                dataList.add(rs.getInt(3));
+                dataList.add(rs.getString(4));
+                dataList.add(rs.getInt(5));
+                dataList.add(rs.getDouble(6));
                 ResArr._data.add(dataList);
             }
         } catch (SQLException e) {
@@ -1989,11 +2375,17 @@ public class DataBaseController {
                 "\t\tFROM Cheq\n" +
                 "\t\tINNER JOIN Sale ON Sale.check_number = Cheq.check_number\n" +
                 "\t\tINNER JOIN Store_Product_Data ON Store_Product_Data.UPC = Sale.UPC\n" +
-                "\t\tWHERE \t = ?\n" +
+                "\t\tWHERE Cheq.card_number = ?\n" +
                 "\t)\n" +
                 ")";
         try (PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            pstmt.setInt(1, card_number);
+            if(card_number == null){
+                pstmt.setNull(1, Types.INTEGER);
+            }
+            else {
+                pstmt.setInt(1, card_number);
+            }
+
 
             ResultSet rs  = pstmt.executeQuery();
             while (rs.next()) {

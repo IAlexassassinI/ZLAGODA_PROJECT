@@ -86,7 +86,12 @@ public class EmployeeData {
         //SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         try {
             try {
-                _id_employee = Integer.valueOf(id_employee);
+                if(id_employee.length() == 0){
+                    _id_employee = 0;
+                }
+                else{
+                    _id_employee = Integer.valueOf(id_employee);
+                }
                 _salary = Double.valueOf(salary);
             }
             catch (Exception e){
@@ -96,7 +101,7 @@ public class EmployeeData {
             _empl_surname = empl_surname;
             _empl_name = empl_name;
 
-            if(empl_patronymic.equalsIgnoreCase("null")){
+            if(empl_patronymic.equalsIgnoreCase("null") || empl_patronymic.length() == 0){
                 _empl_patronymic = null;
             }
             else{

@@ -18,7 +18,7 @@ public class DataHolder {
     public LinkedList<String> _columnNames;
     public LinkedList<LinkedList<Object>> _data;
 
-    public TWO<String[], String[][]> ConvertToSwingTableData(){
+    public TWO<Object[], Object[][]> ConvertToSwingTableData(){
         String[] names = _columnNames.toArray(String[]::new);
         String[][] table = new String[_data.size()][_columnNames.size()];
 
@@ -36,7 +36,7 @@ public class DataHolder {
             }
             y++;
         }
-        return new TWO<String[], String[][]>(names, table);
+        return new TWO<Object[], Object[][]>(names, table);
     }
 
 }
