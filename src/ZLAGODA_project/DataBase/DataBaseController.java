@@ -1469,12 +1469,15 @@ public class DataBaseController {
                 "\tproduct_name,\n" +
                 "\tcharacteristics\n" +
                 "FROM Product INNER JOIN Category ON Product.category_number = Category.category_number\n" +
-                "WHERE (category_name LIKE ? OR ? IS NULL)\n" +
-                "AND (Category.category_number = ? OR ? IS NULL)\n" +
+                "WHERE \n" +
+                "(Category.category_number = ? OR ? IS NULL)\n" +
                 "ORDER BY product_name";
         try (
                 PreparedStatement pstmt  = _conn.prepareStatement(sql)){
-            if(category_name == null){
+
+            pstmt.setInt(1, category_number);
+            pstmt.setInt(2, category_number);
+            /*if(category_name == null){
                 pstmt.setNull(1, Types.VARCHAR);
                 pstmt.setNull(2, Types.VARCHAR);
             }
@@ -1489,7 +1492,7 @@ public class DataBaseController {
             else{
                 pstmt.setInt(3, category_number);
                 pstmt.setInt(4, category_number);
-            }
+            }*/
 
 
             ResultSet rs  = pstmt.executeQuery();
